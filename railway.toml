@@ -1,0 +1,5 @@
+[project]
+name = "toptovar_bot"
+
+[deploy]
+start = "python bot.py"
