@@ -1,5 +1,9 @@
 [project]
 name = "toptovar_bot"
 
-[deploy]
-start = "python bot.py"
+[build]
+builder = "python"
+
+[start]
+# Botni ishga tushirish uchun buyruq
+command = "python bot.py"
