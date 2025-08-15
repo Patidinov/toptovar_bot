@@ -253,3 +253,8 @@ def rules(message):
 
 print("Bot ishga tushdi...")
 bot.polling(none_stop=True)
+
+if __name__ == "__main__":
+    updater.start_polling()
+    updater.idle()
+
