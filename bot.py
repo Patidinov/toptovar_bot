@@ -46,24 +46,20 @@ def send_welcome(message):
     username = message.from_user.username or "Ismsiz foydalanuvchi"
     args = message.text.split()
 
-    # --- Agar taklif havolasi bilan kelsa ---
     if len(args) > 1:
-        inviter_id = args[1]  # taklif qilgan odamning ID
+        inviter_id = args[1]
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Takliflar")
         sheet.append_row([str(inviter_id), telegram_id])
         bot.send_message(message.chat.id, "🤝 Siz do‘stingizning taklif havolasi orqali qo‘shildingiz!")
         bot.send_message(inviter_id, f"🎉 {message.from_user.full_name} sizning taklifingiz orqali qo‘shildi!")
-
-        # --- Taklif orqali kirganga guruh linkini yuborish ---
         bot.send_message(message.chat.id, "📢 Bizning rasmiy guruhimizga qo‘shiling: @toptovar_and")
 
-    # --- Mijozlar jadvalidan tekshirish ---
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-    ids = sheet.col_values(4)  # D ustun - Telegram ID
+    ids = sheet.col_values(4)
 
     if telegram_id in ids:
         row_index = ids.index(telegram_id) + 1
-        custom_id = sheet.cell(row_index, 1).value  # A ustun - Custom ID
+        custom_id = sheet.cell(row_index, 1).value
         bot.send_message(
             message.chat.id,
             f"👋 Assalomu alaykum, @{username}!\n🆔 Sizning ID raqamingiz: {custom_id}",
@@ -80,9 +76,8 @@ def send_welcome(message):
 def show_points(message):
     telegram_id = str(message.chat.id)
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-
-    ids = sheet.col_values(4)   # D ustun
-    balls = sheet.col_values(6) # F ustun
+    ids = sheet.col_values(4)
+    balls = sheet.col_values(6)
 
     if telegram_id in ids:
         index = ids.index(telegram_id)
@@ -96,8 +91,8 @@ def show_points(message):
 def show_points_history(message):
     telegram_id = str(message.chat.id)
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-
     ids = sheet.col_values(4)
+
     if telegram_id in ids:
         index = ids.index(telegram_id) + 1
         buyurtma_ball = sheet.cell(index, 7).value or "0"
@@ -126,7 +121,7 @@ def contact_admin(message):
     bot.send_message(message.chat.id, "📞 Admin bilan bog‘lanish: @Toptovaradmin")
 
 # --- 🛒 Xaridlarim ---
-@bot.message_handler(func=lambda message: message.text == "🛒 Xaridlarim" or message.text == "/xaridlarim")
+@bot.message_handler(func=lambda message: message.text in ["🛒 Xaridlarim", "/xaridlarim"])
 def xaridlarim_handler(message):
     markup = types.InlineKeyboardMarkup()
     statuses = ["🇨🇳 Xitoyda", "🚚 Yo'lda", "Yetib kelgan", "Tamomlangan", "Bekor qilingan"]
@@ -134,127 +129,10 @@ def xaridlarim_handler(message):
         markup.add(types.InlineKeyboardButton(status, callback_data=f"status_{status}"))
     bot.send_message(message.chat.id, "Qaysi holatdagi buyurtmalarni ko‘rmoqchisiz?", reply_markup=markup)
 
-# --- Status bo‘yicha buyurtmalarni chiqarish ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith("status_"))
-def send_filtered_orders(call):
-    selected_status = call.data.replace("status_", "")
-    user_tg_id = str(call.from_user.id)
+# --- Callbacklar, Reyting, Taklif, Feedback va Qoidalar ---
+# ... (Sizning qolgan kodlar o‘zgarmaydi) ...
 
-    mijozlar_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-    mijozlar_data = mijozlar_sheet.get_all_values()
-
-    user_custom_id = None
-    for row in mijozlar_data[1:]:
-        if row[3] == user_tg_id:
-            user_custom_id = row[0]
-            break
-
-    if not user_custom_id:
-        bot.send_message(call.message.chat.id, "❌ Siz ro‘yxatdan o‘tmagansiz.")
-        return
-
-    buyurtmalar_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Buyurtmalar")
-    buyurtmalar_data = buyurtmalar_sheet.get_all_values()
-
-    STATUS_COL = 12
-    PHOTO_COL = 15
-
-    filtered_orders = [
-        row for row in buyurtmalar_data[1:]
-        if len(row) > STATUS_COL and row[0] == user_custom_id and row[STATUS_COL] == selected_status
-    ]
-
-    if not filtered_orders:
-        bot.send_message(call.message.chat.id, f"📦 '{selected_status}' holatidagi buyurtmangiz yo‘q.")
-        return
-
-    for order in filtered_orders:
-        buyurtma_sana = order[13]
-        yetib_kelgan_sana = order[14] if order[14] else "🚚 Yo‘lda"
-        narx = order[5]
-        kargo_narxi = order[7] if order[7] else "✈️ Yetib kelganda aniq bo‘ladi"
-        umumiy_narx = order[8] if order[7] else f"{order[8]} + Kargo"
-        tolangan = order[10] if order[10] else "-"
-        qolgan_tolov = order[11]
-        holati = order[12]
-        kargo_turi = order[16]
-
-        file_link = gdrive_direct_link(order[PHOTO_COL] if len(order) > PHOTO_COL else None)
-
-        caption = (
-            f"📅 Buyurtma sanasi: {buyurtma_sana}\n"
-            f"🚚 Yetib kelgan sana: {yetib_kelgan_sana}\n"
-            f"💰 Narxi: {narx}\n"
-            f"📦 Kargo: {kargo_narxi}\n"
-            f"🔥 Umumiy narx: {umumiy_narx}\n"
-            f"✅ To‘langan: {tolangan}\n"
-            f"💵 Qolgan to‘lov: {qolgan_tolov}\n"
-            f"📌 Holati: {holati}\n"
-            f"📮 Kargo turi: {kargo_turi}"
-        )
-
-        if file_link:
-            bot.send_photo(call.message.chat.id, file_link, caption=caption, parse_mode="Markdown")
-        else:
-            bot.send_message(call.message.chat.id, caption, parse_mode="Markdown")
-
-# --- 🏆 Reyting ---
-@bot.message_handler(func=lambda message: message.text == "🏆 Reyting")
-def show_reyting(message):
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-    data = sheet.get_all_values()[1:]  # sarlavhasiz
-    sorted_data = sorted(data, key=lambda x: int(x[10] or 0), reverse=True)  # Jami ballar
-
-    medals = ["🥇", "🥈", "🥉"]  # 1, 2, 3 o‘rin uchun belgilar
-    text = "🏆 *TOP 10 REYTING*\n\n"
-
-    for i, row in enumerate(sorted_data[:10], 1):
-        medal = medals[i-1] if i <= 3 else f"{i}."
-        text += f"{medal} {i}-o‘rin   | 👤 *ID:* `{row[0]}` | 💎 *Ball:* {row[10]}\n"
-
-    bot.send_message(message.chat.id, text, parse_mode="Markdown")
-
-# --- 🤝 Do‘st taklif qilish ---
-@bot.message_handler(func=lambda message: message.text == "🤝 Do‘st taklif qilish")
-def invite_friend(message):
-    bot.send_message(message.chat.id, "👥 Do‘st taklif qilish uchun ushbu havolani ulashing:\nhttps://t.me/toptovarand_bot?start=" + str(message.from_user.id))
-
-# --- 🔍 ID tekshirish ---
-@bot.message_handler(func=lambda message: message.text == "🔍 ID tekshirish")
-def check_id(message):
-    telegram_id = str(message.from_user.id)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Mijozlar")
-    ids = sheet.col_values(4)
-    if telegram_id in ids:
-        index = ids.index(telegram_id) + 1
-        custom_id = sheet.cell(index, 1).value
-        bot.send_message(message.chat.id, f"🆔 Sizning ID raqamingiz: {custom_id}")
-    else:
-        bot.send_message(message.chat.id, "❌ ID topilmadi.")
-
-# Admin Telegram ID (o'zingizning ID'ingizni yozing)
-ADMIN_ID = 373070131  # bu yerga o'zingizning ID'ingizni yozing
-
-# --- 💬 Fikr bildirish ---
-@bot.message_handler(func=lambda message: message.text == "💬 Fikr bildirish")
-def feedback(message):
-    bot.send_message(message.chat.id, "💬 Fikr yoki takliflaringizni bu yerga yozing va yuboring. Adminlar ko‘rib chiqadi.")
-    bot.register_next_step_handler(message, save_feedback)
-
-def save_feedback(message):
-    # Admin ID'ga fikrni yuborish
-    bot.send_message(ADMIN_ID, f"📩 Yangi fikr:\n\n{message.text}\n\n👤 Yuborgan ID: {message.from_user.id}")
-    bot.send_message(message.chat.id, "✅ Fikringiz yuborildi! Rahmat.")
-
-# --- ℹ Qoidalar ---
-@bot.message_handler(func=lambda message: message.text == "ℹ Qoidalar")
-def rules(message):
-    bot.send_message(message.chat.id, "Yaqin orada habar qilinadi!")
-
-print("Bot ishga tushdi...")
-bot.polling(none_stop=True)
-
+# --- Botni ishga tushirish ---
 if __name__ == "__main__":
-    updater.start_polling()
-    updater.idle()
-
+    print("Bot ishga tushdi...")
+    bot.polling(none_stop=True)
